@@ -3,7 +3,7 @@
 
 use strict;
 use blib;
-use Test::More tests => 46;
+use Test::More tests => 50;
 use constant TEST_FILE =>'test.xml';
 use vars qw($host $p $FH $scriptpath $scaninfo @test %test $test);
 use_ok('Parser::Nmap::XML');
@@ -14,6 +14,7 @@ if(! -e $FH){$FH='./test.xml';}
 $p = new Parser::Nmap::XML;
 $scaninfo = new Parser::Nmap::XML::ScanInfo;
 $host = new Parser::Nmap::XML::Host;
+
 
 nmap_parser_test();
 nmap_parser_std_test();
@@ -37,10 +38,10 @@ is(scalar $p->get_host_list(),0,'Testing clean() against host list');
 
 sub nmap_parser_std_test {
 
-ok(!$p->only_inactive(), 'Setting filters for only inactive hosts');
-ok($p->only_active(), 'Setting filters for only active hosts');
-
-
+ok($p->parse_filter_status(1), 'Enable parse filter for only active hosts');
+ok(!$p->parse_filter_status(), 'Disable parse filter for only active hosts');
+ok(!$p->parse_filter_generic_os(0), 'Disable parse filter for generic os');
+ok($p->parse_filter_generic_os(1), 'Enable parse filter for generic os');
 
 %test = (solaris => [qw(solaris sparc sunos)],
             linux => [qw(linux mandrake redhat slackware)],
@@ -95,14 +96,16 @@ is(ref($host = $p->get_host('127.0.0.1')),'Parser::Nmap::XML::Host','Getting Hos
 is($host->status(), 'up', 'Testing if status = up');
 is($host->addr(), '127.0.0.1', 'Testing for correct address');
 is($host->addrtype(), 'ipv4', 'Testing for correct address type - ipv4');
-is($host->hostnames(), 'localhost.localdomain','Testing for correct hostname');
+is($host->hostnames(), 1,'Testing for correct hostname count (void)');
+is($host->hostnames(1), 'localhost.localdomain','Testing for correct hostname (1)');
 is(scalar @{[$host->tcp_ports()]} , 6, 'Testing for tcp_ports()');
 is(scalar @{[$host->udp_ports()]} , 2, 'Testing for udp_ports()');
 is($host->tcp_service_name('22'), 'ssh','Testing tcp_service_name(22) = sshd');
 is($host->tcp_service_name('25'), 'smtp','Testing tcp_service_name(25) = smtp');
 is($host->udp_service_name('111'), 'rpcbind', 'Testing udp_service_name(111) = rpcbind');
 is(scalar @{[$host->os_matches()]} , 1,'Testing os_matches()');
-is($host->os_matches().'', 'Linux Kernel 2.4.0 - 2.5.20','Testing for correct OS');
+is(scalar $host->os_matches(),1,'Testing for correct OS');
+is($host->os_matches(1), 'Linux Kernel 2.4.0 - 2.5.20','Testing for correct OS');
 is($host->os_generic(),'linux','Testing os_generic() = linux');
 is($host->os_port_used(), '22', 'Testing os_port_used() = 22');
 is($host->uptime_seconds() , 1973, 'Testing uptime_seconds() : ');

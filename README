@@ -1,4 +1,4 @@
-Parser/Nmap/XML version 0.40
+Parser/Nmap/XML version 0.5
 ============================
 
 Parse Nmap xml-output files using perl
@@ -8,7 +8,8 @@ either by passing a filehandle that is being piped from a current nmap scan
 or passing an xml filename that is the output of the of using the '-oX file.xml'
 option. It uses the XML::Twig library, which is memory efficient and fast.
 In the authors opinion, this module is very easy to use to extract information
-from an nmap xml scan output.
+from an nmap xml scan output about the scan itself and the hosts that were
+scanned.
 
 INSTALLATION
 
@@ -31,6 +32,16 @@ not really need the executable, but the xml output that you will be parsing
 (or able to parse), must be from this version forward.
 
 CHANGES
+
+Changes for 0.5
+	- added more documentation
+	- minor speed improvements
+	- added methods to Parser::Nmap::XML
+		parse_filter_generic_os($bool) (see doc)
+	- renamed only_active() to parse_filter_status($bool) (see doc)
+	- Parser::Nmap::XML::Host
+		changed hostnames() to take a value a number (see doc)
+		changed os_matches() to take a value a number (see doc)
 
 Changes for 0.4
         - added new package called ScanInfo (Parser::Nmap::XML::ScanInfo

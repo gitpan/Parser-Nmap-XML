@@ -1,5 +1,14 @@
 Revision history for Perl extension Parser::Nmap::XML.
 
+Changes for 0.5
+	- added more documentation
+	- minor speed improvements
+	- added methods to Parser::Nmap::XML
+		parse_filter_generic_os($bool) (see doc)
+	- renamed only_active() to parse_filter_status($bool) (see doc)
+	- Parser::Nmap::XML::Host
+		changed hostnames() to take a value a number (see doc)
+		changed os_matches() to take a value a number (see doc)
 
 Changes for 0.4
 	- added new package called ScanInfo (Parser::Nmap::XML::ScanInfo

@@ -13,10 +13,25 @@ Parser::Nmap::XML - frontend to parse the Nmap scan data from the XML output (-o
   my $p = new Parser::Nmap::XML;
   $p->parse($fh); #filehandle or nmap xml output string
   #or $p->parsefile('nmap_output.xml');
-  my @hosts = $p->get_host_list('up');#only get if they are active
+
+  print "Scan Information:\n";
+  $si = $p->get_scaninfo();
+  #Now I can get scan information by calling methods
+  'Number of services scanned: '.$si->num_of_services()."\n",
+  'Start Time: '.$si->start_time()."\n",
+  'Scan Types: ',(join ' ',$si->scan_types())."\n";
 
   print "Hosts scanned:\n";
-  for (@hosts) {print "Address: ".$_->addr()."\t".$_->hostnames()."\n";}
+  for my $ip ($p->get_host_list()){
+  $host_obj = Parser::Nmap::XML->get_host('some_ip');
+
+  #Now I can get information about this host by calling methods
+  'Hostname: '.($host_obj->hostnames())[0],"\n", #could have more than 1
+  'Address: '.$host_obj->addr()."\n",
+  'OS matches: '.(join ',', $host_obj->os_matches())."\n", #more than 1 ?
+  'Last Reboot: '.($host_obj->uptime_lastboot,"\n";
+  	#... you get the idea...
+   }
 
   "\n\nUnix Flavor Machines:\n";
   for ($p->filter_by_generic_os('linux','solaris','unix')){print;}
@@ -29,10 +44,10 @@ Parser::Nmap::XML - frontend to parse the Nmap scan data from the XML output (-o
 
 =head1 DESCRIPTION
 
-This is an XML parser for nmap XML reports. This uses the XML::Twig library which is fast
-and more memory efficient than using the XML::SAX::PurePerl that comes with
-Nmap::Scanner::Scanner. This module, in the authors opinion, is easier to use for
-basic information gathering of hosts.
+This is an XML parser for nmap XML reports. This uses the XML::Twig library
+which is fast and more memory efficient than using the XML::SAX::PurePerl that
+comes with Nmap::Scanner::Scanner. This module, in the authors opinion, is
+easier to use for basic information gathering of hosts.
 
 =cut
 
@@ -50,7 +65,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 
 our @EXPORT = qw( );
 
-our $VERSION = '0.4';
+our $VERSION = '0.5';
 
 
 sub dd {
@@ -65,43 +80,42 @@ print("$name Tree:\n".Data::Dumper->Dump([$ref],["*".$name]));
 
 =pod
 
-=head1 METHODS
-
 =head3 Easy Steps
 
-=item 1. Using this module is very simple. (hopefully). You use
+- Using this module is very simple. (hopefully). You use
 $obj->parse() or $obj->parsefile(), to parse the nmap xml
 information. This information is parsed and constructed
 internally.
 
-=item 2.a Use the $s = $obj->get_scaninfo() to obtain the
+- Use the $si = $obj->get_scaninfo() to obtain the
 Parser::Nmap::XML::ScanInfo object. Then you can call any of the
 ScanInfo methods on this object to retrieve the information. See
 L<Parser::Nmap::XML::ScanInfo> below.
 
-=item 2.b Use the $h = $obj->get_host($addr) to obtain the
+- Use the $host_obj = $obj->get_host($addr) to obtain the
 Parser::Nmap::XML::Host object of the current address. Using this object
 you can call any methods in the Host object to retrieve the information
 taht nmap obtained from this scan.
 
-=item 3. You can use any of the other methods to filter or obtain
+- You can use any of the other methods to filter or obtain
 different lists.
- Example:
- get_host_list() returns all ip addresses that were scanned
- filter_by_generic_os($os) returns all ip addresses that have generic_os = $os
- 					See get_os_list() and set_os_list()
- etc. (see other methods)
 
-=item 4. After you are done with everything, you should do a $obj->clean()
+ get_host_list() #returns all ip addresses that were scanned
+ filter_by_generic_os($os) #returns all ip addresses that have generic_os = $os
+ 			   #See get_os_list() and set_os_list()
+ #etc. (see other methods)
+
+- After you are done with everything, you should do a $obj->clean()
 to free up the memory used by maintaining the scan and hosts information
 from the scan.
  A much more efficient way to do is, once you are done using a host object,
  delete it from the main tree.
 
- Example:
+ 	#Getting all IP addresses parsed
  for my $host ($obj->get_host_list())
- 	{
+ 	{#Getting the host object for that address
 	my $h = $obj->get_host($host);
+	#Calling methods on that object
 	print "Addr: $host  OS: ".(join ',',$h->os_matches())."\n";
 	$obj->del_host($host); #frees memory
 	}
@@ -113,8 +127,9 @@ from the scan.
  delete $_;
  }
 
+=head1 METHODS
 
-
+=head2 Pre-Parsing Methods
 
 =over 4
 
@@ -134,7 +149,7 @@ $$self{twig}  = new XML::Twig(
 		}
 		);
 
-
+$G{generic_os_scan} =1;
 %OS_LIST = (solaris => [qw(solaris sparc sunos)],
             linux => [qw(linux mandrake redhat slackware)],
             unix => [qw(unix hp-ux hpux bsd immunix aix knoppix)],
@@ -148,6 +163,64 @@ return $self;
 
 =pod
 
+=item B<set_generic_os_list($hashref)>
+
+Decides what is the generic OS name of the given system.
+
+Takes in a hash refernce that referes to pairs of generic os names to their
+keyword list. Shown here is the default. Calling this method will overwrite the
+whole list, not append to it. Use C<get_generic_os_list()> first to get the current
+listing.
+
+  $obj->set_generic_os_list({
+  	solaris => [qw(solaris sparc sunos)],
+        linux => [qw(linux mandrake redhat slackware)],
+        unix => [qw(unix hpux bsd immunix)],
+        windows  => [qw(win microsoft crap)],
+	mac => [qw(mac osx)],
+	switch => [qw(ethernet cisco netscout)]
+	    });
+
+example: generic_os_name = solaris if the os string being matched
+matches (solaris, sparc or sunos) keywords
+
+
+=item B<get_generic_os_list()>
+
+Returns a hashre containing the current generic os names (keys) and
+an arrayref pointing to the list of corresponding keywords (values).
+See C<set_generic_os_list()> for an example.
+
+=item B<parse_filter_generic_os($bool)>
+
+If set to true, (the default), it will match the OS guessed by nmap with a
+generic name that is given in the OS list. See L<set_generic_os_list()>. If
+false, it will disable this matching (a bit of speed up in parsing).
+
+=item B<parse_filter_status($bool)>
+
+If set to true, it will ignore hosts that nmap found to be in state 'down'.
+If set to perl-wise false, it will parse all the hosts. This is the default.
+Note that if you do not place this filter, it will parse and store (in memory)
+hosts that do not have much information. So calling a Parser::Nmap::XML::Host
+method on one of these hosts that were 'down', will return undef.
+
+=cut
+
+sub set_generic_os_list {
+my $self = shift;my $list = shift;
+%OS_LIST = %{$list};return \%OS_LIST;
+}
+
+sub get_generic_os_list {return \%OS_LIST;}
+sub parse_filter_generic_os {$G{generic_os_scan} = $_[1];}
+sub parse_filter_status {$G{only_active} = $_[1];}
+
+
+=pod
+
+=head2 Parse Methods
+
 =item B<parse($source [, opt =E<gt> opt_value [...]])>
 
 Same as XML::Twig::parse().
@@ -155,8 +228,8 @@ Same as XML::Twig::parse().
 This method is inherited from XML::Parser.  The "SOURCE" parameter should
 either be a string containing the whole XML document, or it should be
 an open "IO::Handle". Constructor options to "XML::Parser::Expat" given as
-keyword-value pairs may follow the"SOURCE" parameter. These override, for this call, any options
-or attributes passed through from the XML::Parser instance.
+keyword-value pairs may follow the"SOURCE" parameter. These override, for this
+call, any options or attributes passed through from the XML::Parser instance.
 
 A die call is thrown if a parse error occurs. Otherwise it will return
 the twig built by the parse. Use "safe_parse" if you want the
@@ -201,10 +274,11 @@ there is no way to keep going after an error.
 
 =cut
 
-sub parse {%H = ();$S = undef;my $twig = shift->{twig};$twig->parse(@_);}
-sub parsefile {%H = ();$S = undef;my $twig = shift->{twig};$twig->parsefile(@_);}
-sub safe_parse {%H = ();$S = undef;my $twig = shift->{twig};$twig->safe_parse(@_);}
-sub safe_parsefile {%H = ();$S = undef;my $twig = shift->{twig};$twig->safe_parsefile(@_);}
+# line 'Parse Sections'
+sub parse {%H =();$S = undef;shift->{twig}->parse(@_);}
+sub parsefile {%H=();$S = undef;shift->{twig}->parsefile(@_);}
+sub safe_parse {%H=();$S = undef;shift->{twig}->safe_parse(@_);}
+sub safe_parsefile {%H=();$S = undef;shift->{twig}->safe_parsefile(@_);}
 
 =pod
 
@@ -213,56 +287,13 @@ sub safe_parsefile {%H = ();$S = undef;my $twig = shift->{twig};$twig->safe_pars
 Frees up memory by cleaning the current tree hashes and purging the current
 information in the XML::Twig object.
 
-=item B<only_active()>
-
-=item B<only_inactive()>
-
 =cut
 
-sub clean {%H = ();$S = undef;my $twig = shift->{twig};$twig->purge;return $S;}
-sub only_active {my $self = shift; $G{only_active} = 1;}
-sub only_inactive {my $self=shift; $G{only_active} = undef;}
+sub clean {%H = ();$S = undef;$_[0]->{twig}->purge;return $S;}
 
 =pod
 
-=item B<set_generic_os_list($hashref)>
-
-Decides what is the generic OS name of the given system.
-
-Takes in a hash refernce that referes to pairs of generic os names to their
-keyword list. Shown here is the default. Calling this method will overwrite the
-whole list, not append to it. Use C<get_generic_os_list()> first to get the current
-listing.
-
-  $obj->set_generic_os_list({
-  	solaris => [qw(solaris sparc sunos)],
-        linux => [qw(linux mandrake redhat slackware)],
-        unix => [qw(unix hpux bsd immunix)],
-        windows  => [qw(win microsoft crap)],
-	mac => [qw(mac osx)],
-	switch => [qw(ethernet cisco netscout)]
-	    });
-
-example: generic_os_name = solaris if the os string being matched
-matches (solaris, sparc or sunos) keywords
-
-
-=item B<get_generic_os_list()>
-
-Returns a hashre containing the current generic os names (keys) and
-an arrayref pointing to the list of corresponding keywords (values).
-See C<set_generic_os_list()> for an example.
-
-=cut
-
-sub set_generic_os_list {
-my $self = shift;my $list = shift;
-%OS_LIST = %{$list};return \%OS_LIST;
-}
-
-sub get_generic_os_list {return \%OS_LIST;}
-
-=pod
+=head2 Post-Parse Methods
 
 =item B<get_host_list([$status])>
 
@@ -271,15 +302,6 @@ $status is optional and can be either 'up' or 'down'. If $status is
 given, then only IP addresses that have that corresponding state will
 be returned. Example: setting $status = 'up', then will return all IP
 addresses that were found to be up. (network talk for active)
-
-=cut
-
-sub get_host_list {shift if(ref($_[0]) eq __PACKAGE__);my $state = shift;
-if($state eq 'up' || $state eq 'down'){return (grep {$H{$_}{state} eq $state} (keys %H))};
-return (keys %H);
-}
-
-=pod
 
 =item B<get_host_tree($ip_addr)>
 
@@ -290,23 +312,10 @@ Returns the complete tree of the corresponding IP address.
 Deletes the corresponding host tree from the main forest. (Frees up
 memory of unwanted host structures).
 
-=cut
-
-sub get_host {shift if(ref($_[0]) eq __PACKAGE__);return $H{$_[0]};}
-sub del_host {shift if(ref($_[0]) eq __PACKAGE__);delete $H{$_[0]};}
-
-=pod
-
 =item B<get_host_objects()>
 
 Returns all the host objects of all the IP addresses that nmap had run against.
 See L<Parser::Nmap::XML::Host>.
-
-=cut
-
-sub get_host_objects {return values (%H);}
-
-=pod
 
 =item B<filter_by_generic_os(@generic_os_names)>
 
@@ -316,7 +325,26 @@ for example on generic_os_name. This makes it easier to sift through the
 lists of IP if you are trying to split up IP addresses
 depending on platform (window and unix machines for example).
 
+=item B<filter_by_status($status)>
+
+This returns an array of hosts addresses that are in the $status state.
+$status can be either 'up' or 'down'. Default is 'up'.
+
+=item B<get_scaninfo_tree()>
+
+Returns the the current Parser::Nmap::XML::ScanInfo.
+Methods can be called on this object to retrieve information
+about the parsed scan. See L<Parser::Nmap::XML::ScanInfo> below.
+
 =cut
+
+sub get_host_list {shift if(ref($_[0]) eq __PACKAGE__);my $state = shift;
+if($state eq 'up' || $state eq 'down'){return (grep {$H{$_}{state} eq $state} (keys %H))};
+return (keys %H);
+}
+sub get_host {shift if(ref($_[0]) eq __PACKAGE__);return $H{$_[0]};}
+sub del_host {shift if(ref($_[0]) eq __PACKAGE__);delete $H{$_[0]};}
+sub get_host_objects {return values (%H);}
 
 sub filter_by_generic_os {
 my $self = shift;
@@ -337,15 +365,6 @@ return @os_matched_ips;
 
 }
 
-=pod
-
-=item B<filter_by_status($status)>
-
-This returns an array of hosts addresses that are in the $status state.
-$status can be either 'up' or 'down'. Default is 'up'.
-
-=cut
-
 sub filter_by_status {
 my $self= shift;
 my $status = lc(shift);
@@ -353,15 +372,6 @@ $status = 'up' if($status ne 'up' || $status ne 'down');
 return (grep {$H{$_}->{status} eq $status} (keys %H));
 }
 
-=pod
-
-=item B<get_scaninfo_tree()>
-
-Returns the the current Parser::Nmap::XML::ScanInfo.
-Methods can be called on this object to retrieve information
-about the parsed scan. See L<Parser::Nmap::XML::ScanInfo> below.
-
-=cut
 
 sub get_scaninfo {return $S;}
 
@@ -430,7 +440,8 @@ unless(defined $tmp){return undef;}
 for my $p (@list){
 my $proto = $p->att('protocol');
 my $portid = $p->att('portid');
-if(defined($proto && $portid)){$H{$addr}{ports}{$proto}{$portid} = _service_hdlr($host,$addr,$p);}
+if(defined($proto && $portid)){$H{$addr}{ports}{$proto}{$portid} =
+				_service_hdlr($host,$addr,$p);}
 
 }
 
@@ -466,7 +477,8 @@ if(defined(my $os_list = $host->first_child('os'))){
     push @list, $o->att('name');
     }
     @{$H{$addr}{os}{names}} = @list;
-    $H{$addr}{os}{generic_names} = _match_os(@list);
+
+    $H{$addr}{os}{generic_names} = _match_os(@list) if($G{generic_os_scan});
     }
 
     return $H{$addr}{os};
@@ -519,13 +531,28 @@ return 'other';
 
 }
 
+
+################################################################################
+##			Parser::Nmap::XML::ScanInfo			      ##
+################################################################################
+
 =pod
 
-=head1 Parser::Nmap::XML::ScanInfo
+=back 4
 
-The scaninfo tree object. This package contains methods to easily access
-all the parameters and values of the Nmap scan ran by the currently parsed
-xml file or filehandle.
+=head2 Parser::Nmap::XML::ScanInfo
+
+The scaninfo object. This package contains methods to easily access
+all the parameters and values of the Nmap scan information ran by the
+currently parsed xml file or filehandle.
+
+ $si = $obj->get_scaninfo();
+ print 	'Nmap Version: '.$si->nmap_version()."\n",
+ 	'Num of Scan Types: '.(join ',', $si->scan_types() )."\n",
+ 	'Total time: '.($si->finish_time() - $si->start_time()).' seconds';
+ 	#... you get the idea...
+
+=over 4
 
 =cut
 
@@ -548,7 +575,8 @@ sub finish_time {return $_[0]->{finish_time};}
 sub nmap_version {return $_[0]->{nmap_version};}
 sub args {return $_[0]->{args};}
 sub start_time {return $_[0]->{start_time};}
-sub scan_types {(wantarray) ? return (keys %{$_[0]->{type}}) : return scalar(keys %{$_[0]->{type}});}
+sub scan_types {(wantarray) ? 	return (keys %{$_[0]->{type}}) :
+				return scalar(keys %{$_[0]->{type}});}
 sub proto_of_scan_type {return $_[0]->{type}{$_[1]};}
 
 =pod
@@ -586,16 +614,35 @@ that were selected.
 
 Returns the protocol of the specific scan type.
 
+=back 4
+
 =cut
 
 
+
+################################################################################
+##			Parser::Nmap::XML::Host				      ##
+################################################################################
+
 =pod
 
+=head2 Parser::Nmap::XML::Host
 
-=head1 Parser::Nmap::XML::Host
+The host object. This package contains methods to easily access the information
+of a host that was scanned.
 
-The host tree object. This package contains methods to access easily
-all the parameters in the host tree.
+ $host_obj = Parser::Nmap::XML->get_host('some_ip');
+  #Now I can get information about this host whose ip = 'some_ip'
+ 'Hostname: '.($host_obj->hostnames())[0],"\n", #could have more than 1
+ 'Address: '.$host_obj->addr()."\n",
+ 'OS matches: '.(join ',', $host_obj->os_matches())."\n", #more than 1 ?
+ 'Last Reboot: '.($host_obj->uptime_lastboot,"\n";
+ #... you get the idea...
+
+If you would like for me to add more advanced information (such as
+TCP Sequences), let me know.
+
+=over 4
 
 =cut
 
@@ -613,14 +660,19 @@ return $self;
 sub status {return $_[0]->{status};}
 sub addr {return $_[0]->{addr};}
 sub addrtype {return $_[0]->{addrtype};}
-sub hostnames {(wantarray) ? return @{$_[0]->{hostnames}} : return @{$_[0]->{hostnames}}[0];}
-sub tcp_ports {(wantarray) ? return (keys %{$_[0]->{ports}{tcp}}) : return $_[0]->{ports}{tcp};}
-sub udp_ports {(wantarray) ? return (keys %{$_[0]->{ports}{udp}}) : return $_[0]->{ports}{udp};}
+sub hostnames {($_[1]) ? 	return @{$_[0]->{hostnames}}[ $_[1] - 1] :
+				return @{$_[0]->{hostnames}};}
+sub tcp_ports {(wantarray) ? 	return (keys %{$_[0]->{ports}{tcp}}) :
+				return $_[0]->{ports}{tcp};}
+sub udp_ports {(wantarray) ? 	return (keys %{$_[0]->{ports}{udp}}) :
+				return $_[0]->{ports}{udp};}
 sub tcp_service_name {return $_[0]->{ports}{tcp}{$_[1]}{service_name};}
 sub udp_service_name {return $_[0]->{ports}{udp}{$_[1]}{service_name};}
-sub os_matches {(wantarray) ? return (@{$_[0]->{os}{names}}) : return @{$_[0]->{os}{names}}[0];}
+sub os_matches {($_[1]) ? 	return @{$_[0]->{os}{names}}[ $_[1] - 1 ] :
+				return (@{$_[0]->{os}{names}});}
 sub os_port_used {return $_[0]->{os}{portused};}
-sub os_generic {(wantarray) ? return (split ',', $_[0]->{os}{generic_names}) : return $_[0]->{os}{generic_names};}
+sub os_generic {(wantarray) ? 	return (split ',', $_[0]->{os}{generic_names}) :
+				return $_[0]->{os}{generic_names};}
 sub uptime_seconds {return $_[0]->{uptime}{seconds};}
 sub uptime_lastboot {return $_[0]->{uptime}{lastboot};}
 
@@ -639,11 +691,11 @@ Returns the IP address of the system
 Returns the address type of the IP address returned
 by addr(). Ex. 'ipv4'
 
-=item B<hostnames()>
+=item B<hostnames($number)>
 
-In a list context, returns an array of all the
-hostnames names that the given system has. In a scalar
-context, the first hostname is returned.
+If $number is omitted, returns an array containing all of the host names.
+If $number is given, then returns the host name in that particular slot. (order)
+
 
 =item B<tcp_ports()>
 
@@ -667,11 +719,10 @@ given tcp $port. (if any)
 Returns the name of the service running on the
 given udp $port. (if any)
 
-=item B<os_matches()>
+=item B<os_matches([$number])>
 
-In a list context, returns an array containing all of the
-OS strings that matched the given host. In a scalar
-context, the first OS string is returned.
+If $number is omitted, returns an array of possible matching os names.
+If $number is given, then returns that array entry of possible os names.
 
 =item B<os_port_used()>
 
@@ -690,11 +741,6 @@ Returns the number of seconds the host has been up (since boot).
 =item B<uptime_lastboot()>
 
 Returns the time and date the given host was last rebooted.
-
-=cut
-
-=pod
-
 
 =back 4
 
