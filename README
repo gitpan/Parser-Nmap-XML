@@ -1,0 +1,57 @@
+Parser/Nmap/XML version 0.40
+============================
+
+Parse Nmap xml-output files using perl
+
+This module is intended to sift through the nmap scan outputs in xml form,
+either by passing a filehandle that is being piped from a current nmap scan
+or passing an xml filename that is the output of the of using the '-oX file.xml'
+option. It uses the XML::Twig library, which is memory efficient and fast.
+In the authors opinion, this module is very easy to use to extract information
+from an nmap xml scan output.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+	XML::Twig 3.0+
+
+In addition, you will need nmap 3.00+. You don't exactly need it, but this
+version of nmap supports the xml output that this module can parse. So, you do
+not really need the executable, but the xml output that you will be parsing
+(or able to parse), must be from this version forward.
+
+CHANGES
+
+Changes for 0.4
+        - added new package called ScanInfo (Parser::Nmap::XML::ScanInfo
+        	this contains methods that make it easier to access the
+        	scan information
+	- added new package called Host (Parser::Nmap::XML::Host),
+		which makes it easier to access values for each of the
+		hosts found. See documentation.
+		Host trees are now full of these *::Host objects.
+	- fixed minor bugs with parsing the xml files.
+	- some memory usage improvments.
+
+TODO
+	- have full support of all the scan information
+	- add tcp sequences
+	- faster code?
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2003 Anthony G Persaud
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+

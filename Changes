@@ -1,0 +1,17 @@
+Revision history for Perl extension Parser::Nmap::XML.
+
+
+Changes for 0.4
+	- added new package called ScanInfo (Parser::Nmap::XML::ScanInfo
+        	this contains methods that make it easier to access the
+        	scan information
+	- added new package called Host (Parser::Nmap::XML::Host),
+		which makes it easier to access values for each of the
+		hosts found. See documentation.
+		Host trees are now full of these *::Host objects.
+	- fixed minor bugs with parsing the xml files.
+	- some memory usage improvments.
+
+Changes for 0.01
+	- original version; created by h2xs 1.22 with options
+		-X -n Parser::Nmap::XML
